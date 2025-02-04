@@ -6,3 +6,4 @@ PyPDF2
 weasyprint
 langchain-openai
 crewai
+chromadb==0.3.23
