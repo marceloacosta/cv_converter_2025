@@ -98,7 +98,7 @@ def main():
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer V5")
+    st.title("CV Format Standardizer V6")
 
     # Initialize session state variables
     if "uploaded_file" not in st.session_state:
@@ -264,37 +264,43 @@ def main():
 
     # Process the File
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        st.session_state["result"] = None  # Clear any previous results
         file_bytes = st.session_state["uploaded_file"].getvalue()
         st.write("Processing file of size:", len(file_bytes), "bytes")
         
         # Run the crew with fresh processing
         result = crew.kickoff()
         st.session_state["result"] = result
-        st.markdown(result)
         
         if result:
-            pdf_bytes = markdown_to_pdf(result)
+            st.session_state["current_markdown"] = result
+        
+    # Display and allow editing of results
+    if st.session_state.get("result"):
+        # Display the current markdown
+        st.markdown(st.session_state["current_markdown"])
+        
+        # Editing interface
+        edited_markdown = st.text_area(
+            "Edit the markdown below:",
+            value=st.session_state["current_markdown"],
+            height=300,
+            key="markdown_editor"
+        )
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("Update Preview"):
+                st.session_state["current_markdown"] = edited_markdown
+                st.rerun()
+        
+        with col2:
+            # Always allow PDF generation from current markdown
+            pdf_bytes = markdown_to_pdf(st.session_state["current_markdown"])
             st.download_button(
                 label="Download PDF",
                 data=pdf_bytes,
-                file_name="output.pdf",
-                mime="application/pdf"
-            )
-
-    # Allow Editing and Downloading
-    if st.session_state["result"]:
-        edited_markdown = st.text_area(
-            "Edit the markdown below:",
-            value=st.session_state["result"],
-            height=300
-        )
-        if st.button("Save Edited"):
-            pdf_bytes = markdown_to_pdf(edited_markdown)
-            st.download_button(
-                label="Download Edited PDF",
-                data=pdf_bytes,
-                file_name="edited_output.pdf",
+                file_name="cv_output.pdf",
                 mime="application/pdf"
             )
 
