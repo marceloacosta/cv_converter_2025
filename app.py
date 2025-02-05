@@ -60,25 +60,25 @@ def extract_text_from_file(uploaded_file) -> str:
     return cv_text
 
 # -----------------------------
-# Custom CrewAI Tool with Caching Disabled
+# Custom Tool Definition (Disable Caching)
 # -----------------------------
-# Use CrewAI's BaseTool (not langchain's Tool) for custom tools.
-from crewai import BaseTool
+# Import the base Tool from LangChain.
+from langchain.tools import Tool
 
-class NoCacheTool(BaseTool):
+class NoCacheTool(Tool):
     def cache_function(self, *args, **kwargs):
-        # Always return False so that no caching is done.
+        # Always return False so that caching is disabled.
         return False
 
 class ExtractTextTool(NoCacheTool):
-    name: str = "extract_text_from_file"
-    description: str = (
+    name = "extract_text_from_file"
+    description = (
         "Extracts text from an uploaded file (.txt, .docx, or .pdf). "
         "Caching is disabled so that each call is fresh."
     )
 
     def _run(self, file_path: str) -> str:
-        # Ignore the file_path parameter; read from the session state.
+        # Ignore the file_path parameter; read the file from session state.
         uploaded = st.session_state.get("uploaded_file")
         if not uploaded:
             return "No file uploaded."
@@ -96,9 +96,9 @@ def main():
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer V4")
+    st.title("CV Format Standardizer")
 
-    # Initialize session state for the uploaded file and result.
+    # Initialize session state variables.
     if "uploaded_file" not in st.session_state:
         st.session_state["uploaded_file"] = None
     if "result" not in st.session_state:
@@ -107,7 +107,9 @@ def main():
     # -----------------------------
     # File Uploader
     # -----------------------------
-    uploaded_file = st.file_uploader("Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx'])
+    uploaded_file = st.file_uploader(
+        "Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx']
+    )
     if uploaded_file is not None:
         # Clear the previous result if a new file is uploaded.
         if (st.session_state["uploaded_file"] is None or 
@@ -127,10 +129,10 @@ def main():
     from langchain_openai import ChatOpenAI
     from crewai import Agent, Task, Process, Crew
 
-    # Create our custom tool instance with caching disabled.
+    # Create our custom text extraction tool.
     extract_text_tool = ExtractTextTool()
 
-    # Create the transcriber agent (which uses our custom tool).
+    # Create the transcriber agent that uses our custom tool.
     cv_transcriber = Agent(
         role="Senior Researcher",
         goal="Extract all the relevant sections and details from the CV text.",
@@ -141,7 +143,7 @@ def main():
         llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
     )
 
-    # Create the editor agent (does not need a tool).
+    # Create the editor agent (which does not use any tool).
     cv_editor = Agent(
         role="Senior Editor",
         goal="Review the CV markdown and remove redundancies or empty sections.",
@@ -264,25 +266,18 @@ def main():
     # Process the File
     # -----------------------------
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        # Clear any previous result.
         st.session_state["result"] = None
-
-        # (Optional debug) Show file details.
         file_bytes = st.session_state["uploaded_file"].getvalue()
         st.write("Processing file of size:", len(file_bytes), "bytes")
-
-        # Process the current file with the Crew tasks.
         result = crew.kickoff()
         st.session_state["result"] = result
-
-        # Display the result.
         st.markdown(result)
         if result:
             pdf_bytes = markdown_to_pdf(result)
             st.download_button(
-                label="Download PDF", 
-                data=pdf_bytes, 
-                file_name="output.pdf", 
+                label="Download PDF",
+                data=pdf_bytes,
+                file_name="output.pdf",
                 mime="application/pdf"
             )
 
@@ -294,9 +289,9 @@ def main():
         if st.button("Save Edited"):
             pdf_bytes = markdown_to_pdf(edited_markdown)
             st.download_button(
-                label="Download Edited PDF", 
-                data=pdf_bytes, 
-                file_name="edited_output.pdf", 
+                label="Download Edited PDF",
+                data=pdf_bytes,
+                file_name="edited_output.pdf",
                 mime="application/pdf"
             )
 
