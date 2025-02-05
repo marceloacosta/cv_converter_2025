@@ -155,79 +155,102 @@ def main():
 
     # Define tasks
     task_write_cv = Task(
-        description="""Extract and format the CV content from the uploaded file. Your task:
-1. First use the extract_text_from_file tool to get the CV content
-2. Then format it according to this template, preserving all original information:
+    description=f"""Use the text extracted from the CV text and write comprehensive personal information, job experience and education sections. Make sure you include all job experiences and education details.
+    For your Outputs use the following markdown format (If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.):
+    If Skill level is not specified, leave it empty. If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.
 
-# [Full Name]
-- **Email:** [Email]
-- **Phone:** [Phone number]
-- **Address:** [Address]
-- **LinkedIn:** [LinkedIn profile]
-- **Github:** [Github profile]
-- **Personal website:** [Personal website]
+    # [Name]
+    - **Email:** [Email]
+    - **Phone:** [Phone number]
+    - **Address:** [Address]
+    - **Linkedin:** [LinkedIn profile]
+    - **Github:** [Github profile]
+    - **Personal website:**[Personal website]
+    # About me
+    <div style="text-align: justify"> 
+    - [Description of yourself]
+    </div>
+    # Job experience
+    ## [Company name]
+    ### [Position] 
+    - Duration
+    - Location
+    ##[Responsibilities]
+    <div style="text-align: justify"> 
+    - Description of responsibilities
+    - Description of achievements in that position
+    - Description of technologies, stack or skills used in that position
+    </div>
 
-# About me
-<div style="text-align: justify">
-[Professional summary/description]
-</div>
+    # Education
+    ## [Institution name]
+    ### [Degree] 
+    - Duration
+    - Location
+    ##[Description]
+    - Description of degree
+    # Additional information
+    ## Languages
+    - [Languages] [Skill level]
+    ## Skills
+    - [Programming languages] [Skill level]
+    - [Technologies] 
+    - [Other skills]  
+   
+   
+    """,
+    agent=cv_transcriber,
+)
 
-# Job experience
-## [Company name]
-### [Position]
-- Duration: [Start date - End date]
-- Location: [City, Country]
-
-### Responsibilities & Achievements
-<div style="text-align: justify">
-- [Key responsibility/achievement]
-- [Key responsibility/achievement]
-- [Technologies/tools used]
-</div>
-
-# Education
-## [Institution name]
-### [Degree name]
-- Duration: [Start date - End date]
-- Location: [City, Country]
-- [Relevant coursework/achievements]
-
-# Additional information
-## Languages
-- [Language]: [Proficiency level]
-
-## Skills
-- [Technical skills]
-- [Soft skills]
-- [Other relevant skills]
-
-Important: 
-- Include ALL information from the original CV
-- Keep the exact section structure
-- Preserve all dates, locations, and details
-- Do not omit any information from the original CV
-- Return ONLY the raw markdown content
-- DO NOT wrap the output in code blocks or backticks (```)
-- DO NOT add any additional comments or explanations""",
-        agent=cv_transcriber,
-    )
 
     task_edit_cv = Task(
-        description="""Review the CV markdown from the previous task and improve it. Your task:
-1. Review the markdown formatting
-2. Ensure all sections are properly filled
-3. Fix any formatting issues
-4. Maintain consistent date formats
-5. Keep ALL original information
-6. Remove truly empty sections (those with no content)
-7. Ensure proper markdown syntax
-8. DO NOT include markdown code block delimiters (```) at the start or end
+    description=f"""Use the resulting CV markdown text and Find and explore the resulting CV. Carefully review each section and subsection and eliminate all redundancies and sections or subsections where information is empty or not specified.
+    For your Outputs use the following markdown format below (include sections only whenever applicable):
+    Do not include in your output any commentary or notes. Only include the CV text in markdown format.
+    If Skill level is not specified, leave it empty. If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.
+    # [Name]
+    - **Email:** [Email]
+    - **Phone:** [Phone number]
+    - **Address:** [Address]
+    - **Linkedin:** [LinkedIn profile]
+    - **Github:** [Github profile]
+    - **Personal website:**[Personal website]
+    # About me
+    <div style="text-align: justify"> 
+    - [Description of yourself]
+    </div>
+    # Job experience
+    ## [Company name]
+    ### [Position] 
+    - Duration
+    - Location
+    ##[Responsibilities]
+    <div style="text-align: justify"> 
+    - Description of responsibilities
+    - Description of achievements in that position
+    - Description of technologies, stack or skills used in that position
+    </div>
 
-Return ONLY the raw markdown content without any code block delimiters or additional commentary.
-Do not remove sections that have content. Only remove completely empty sections.
-IMPORTANT: Do not wrap the output in code blocks or backticks.""",
-        agent=cv_editor,
-    )
+    # Education
+    ## [Institution name]
+    ### [Degree] 
+    - Duration
+    - Location
+    ##[Description]
+    - Description of degree
+    # Additional information
+    ## Languages
+    - [Languages] [Skill level]
+    ## Skills
+    - [Programming languages] [Skill level]
+    - [Technologies] 
+    - [Other skills] 
+   
+
+   
+    """,
+    agent= cv_editor,
+)
 
     # Create and configure the crew
     crew = Crew(
