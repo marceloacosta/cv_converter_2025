@@ -60,14 +60,13 @@ def extract_text_from_file(uploaded_file) -> str:
     return cv_text
 
 # -----------------------------
-# Custom Tool Definition (Disable Caching)
+# Custom Tool Definition
 # -----------------------------
-# Import the base Tool class from LangChain.
 from langchain.tools import Tool
 
 class NoCacheTool(Tool):
     def cache_function(self, *args, **kwargs):
-        # Disable caching by always returning False.
+        # Disable caching by always returning False
         return False
 
 class ExtractTextTool(NoCacheTool):
@@ -92,7 +91,7 @@ class ExtractTextTool(NoCacheTool):
 # -----------------------------
 
 def main():
-    # Load environment variables.
+    # Load environment variables
     load_dotenv(find_dotenv())
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
     if not OPENAI_API_KEY:
@@ -101,163 +100,132 @@ def main():
 
     st.title("CV Format Standardizer V4")
 
-    # Initialize session state variables.
+    # Initialize session state variables
     if "uploaded_file" not in st.session_state:
         st.session_state["uploaded_file"] = None
     if "result" not in st.session_state:
         st.session_state["result"] = None
 
-    # -----------------------------
     # File Uploader
-    # -----------------------------
     uploaded_file = st.file_uploader(
         "Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx']
     )
     if uploaded_file is not None:
-        # If a new file is uploaded, clear the previous result.
+        # If a new file is uploaded, clear the previous result
         if (st.session_state["uploaded_file"] is None or 
             st.session_state["uploaded_file"].name != uploaded_file.name):
             st.session_state["result"] = None
         st.session_state["uploaded_file"] = uploaded_file
 
-    # Debug output: display current file name.
+    # Debug output
     if st.session_state["uploaded_file"]:
         st.write("Current uploaded file:", st.session_state["uploaded_file"].name)
     else:
         st.write("No file currently uploaded.")
 
     # -----------------------------
-    # Re-instantiate Agents, Tasks, and Crew
+    # Initialize Agents and Tasks
     # -----------------------------
     from langchain_openai import ChatOpenAI
     from crewai import Agent, Task, Process, Crew
 
-    # Create our custom text extraction tool (with caching disabled).
+    # Create text extraction tool
     extract_text_tool = ExtractTextTool()
 
-    # Create the transcriber agent using our custom tool.
+    # Create agents
     cv_transcriber = Agent(
-        role="Senior Researcher",
-        goal="Extract all the relevant sections and details from the CV text.",
-        backstory="You are an expert recruiter who identifies and extracts the most pertinent information from a CV.",
+        role="Senior CV Analyst",
+        goal="Extract and format all CV information accurately",
+        backstory="Expert at analyzing CVs and extracting relevant information while maintaining all original content",
         verbose=True,
         allow_delegation=False,
         tools=[extract_text_tool],
         llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
     )
 
-    # Create the editor agent (which does not need a tool).
     cv_editor = Agent(
-        role="Senior Editor",
-        goal="Review the CV markdown and remove redundancies or empty sections.",
-        backstory="You are an expert editor who refines CVs to be concise and only include specified details.",
+        role="Senior CV Editor",
+        goal="Review and refine CV formatting while preserving all information",
+        backstory="Expert editor specializing in CV optimization and formatting",
         verbose=True,
         allow_delegation=False,
         tools=[],
         llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
     )
 
-    # Define the tasks.
+    # Define tasks
     task_write_cv = Task(
-        description="""Use the extracted CV text and generate comprehensive sections for personal information, job experience, education, etc. Follow this markdown format precisely. If any information is missing or not specified, do not include that subsection.
+        description="""Extract and format the CV content from the uploaded file. Your task:
+1. First use the extract_text_from_file tool to get the CV content
+2. Then format it according to this template, preserving all original information:
 
-# [Name]
+# [Full Name]
 - **Email:** [Email]
 - **Phone:** [Phone number]
 - **Address:** [Address]
-- **Linkedin:** [LinkedIn profile]
+- **LinkedIn:** [LinkedIn profile]
 - **Github:** [Github profile]
 - **Personal website:** [Personal website]
 
 # About me
 <div style="text-align: justify">
-- [Description of yourself]
+[Professional summary/description]
 </div>
 
 # Job experience
 ## [Company name]
 ### [Position]
-- Duration
-- Location
+- Duration: [Start date - End date]
+- Location: [City, Country]
 
-## Responsibilities
+### Responsibilities & Achievements
 <div style="text-align: justify">
-- Description of responsibilities
-- Description of achievements in that position
-- Description of technologies, stack or skills used
+- [Key responsibility/achievement]
+- [Key responsibility/achievement]
+- [Technologies/tools used]
 </div>
 
 # Education
 ## [Institution name]
-### [Degree]
-- Duration
-- Location
-
-## Description
-- Description of the degree
+### [Degree name]
+- Duration: [Start date - End date]
+- Location: [City, Country]
+- [Relevant coursework/achievements]
 
 # Additional information
 ## Languages
-- [Languages] [Skill level]
+- [Language]: [Proficiency level]
 
 ## Skills
-- [Programming languages] [Skill level]
-- [Technologies]
-- [Other skills]
-""",
+- [Technical skills]
+- [Soft skills]
+- [Other relevant skills]
+
+Important: 
+- Include ALL information from the original CV
+- Keep the exact section structure
+- Preserve all dates, locations, and details
+- Do not omit any information from the original CV
+- Return ONLY the formatted markdown, no additional comments""",
         agent=cv_transcriber,
     )
 
     task_edit_cv = Task(
-        description="""Review the generated CV markdown and remove any redundant or empty sections. Output the final CV markdown without any additional commentary. Use the same format as above.
+        description="""Review the CV markdown from the previous task and improve it. Your task:
+1. Review the markdown formatting
+2. Ensure all sections are properly filled
+3. Fix any formatting issues
+4. Maintain consistent date formats
+5. Keep ALL original information
+6. Remove truly empty sections (those with no content)
+7. Ensure proper markdown syntax
 
-# [Name]
-- **Email:** [Email]
-- **Phone:** [Phone number]
-- **Address:** [Address]
-- **Linkedin:** [LinkedIn profile]
-- **Github:** [Github profile]
-- **Personal website:** [Personal website]
-
-# About me
-<div style="text-align: justify">
-- [Description of yourself]
-</div>
-
-# Job experience
-## [Company name]
-### [Position]
-- Duration
-- Location
-
-## Responsibilities
-<div style="text-align: justify">
-- Description of responsibilities
-- Description of achievements in that position
-- Description of technologies, stack or skills used
-</div>
-
-# Education
-## [Institution name]
-### [Degree]
-- Duration
-- Location
-
-## Description
-- Description of the degree
-
-# Additional information
-## Languages
-- [Languages] [Skill level]
-
-## Skills
-- [Programming languages] [Skill level]
-- [Technologies]
-- [Other skills]
-""",
+Return the complete, formatted CV markdown without any additional commentary.
+Do not remove sections that have content. Only remove completely empty sections.""",
         agent=cv_editor,
     )
 
+    # Create and configure the crew
     crew = Crew(
         agents=[cv_transcriber, cv_editor],
         tasks=[task_write_cv, task_edit_cv],
@@ -265,9 +233,7 @@ def main():
         process=Process.sequential,
     )
 
-    # -----------------------------
     # Process the File
-    # -----------------------------
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
         st.session_state["result"] = None
         file_bytes = st.session_state["uploaded_file"].getvalue()
@@ -284,11 +250,13 @@ def main():
                 mime="application/pdf"
             )
 
-    # -----------------------------
     # Allow Editing and Downloading
-    # -----------------------------
     if st.session_state["result"]:
-        edited_markdown = st.text_area("Edit the markdown below:", value=st.session_state["result"], height=300)
+        edited_markdown = st.text_area(
+            "Edit the markdown below:",
+            value=st.session_state["result"],
+            height=300
+        )
         if st.button("Save Edited"):
             pdf_bytes = markdown_to_pdf(edited_markdown)
             st.download_button(
