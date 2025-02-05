@@ -233,7 +233,7 @@ crew = Crew(
 #############################
 
 def main():
-    st.title("CV Format Standardizer 2025")
+    st.title("CV Format Standardizer")
 
     # Initialize session state variables if not already set.
     if "uploaded_file" not in st.session_state:
@@ -242,27 +242,40 @@ def main():
         st.session_state["result"] = None
 
     # --- File Uploader ---
-    # When a new file is uploaded, automatically clear the previous result.
     uploaded_file = st.file_uploader("Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx'])
     if uploaded_file is not None:
-        # If there's no stored file or if the file name is different, clear the result.
+        # If a new file is uploaded (i.e. the file name is different), clear previous result.
         if (st.session_state["uploaded_file"] is None or 
             st.session_state["uploaded_file"].name != uploaded_file.name):
             st.session_state["result"] = None
         st.session_state["uploaded_file"] = uploaded_file
 
-    # Debug output: show which file is currently stored.
+    # Debug output to verify which file is in session state.
     if st.session_state["uploaded_file"]:
         st.write("Current uploaded file:", st.session_state["uploaded_file"].name)
     else:
         st.write("No file currently uploaded.")
 
+    # Re-instantiate the Crew object (with agents and tasks) inside main.
+    # This ensures that it picks up the latest session state.
+    crew = Crew(
+        agents=[cv_transcriber, cv_editor],
+        tasks=[task_write_cv, task_edit_cv],
+        verbose=2,
+        process=Process.sequential,
+    )
+
     # --- Process the File ---
-    # When the "Process" button is clicked, automatically clear any previous result before processing.
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        # Clear previous result before processing.
+        # Clear any previous result.
         st.session_state["result"] = None
-        result = crew.kickoff()  # Process the current file
+
+        # (Optional debug) Show file details:
+        file_bytes = st.session_state["uploaded_file"].getvalue()
+        st.write("Processing file of size:", len(file_bytes), "bytes")
+        
+        # Process the current file with the crew tasks.
+        result = crew.kickoff()
         st.session_state["result"] = result
         st.markdown(result)
         if result:
@@ -278,3 +291,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
