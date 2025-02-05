@@ -244,7 +244,9 @@ def main():
     # File uploader.
     uploaded_file = st.file_uploader("Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx'])
     if uploaded_file is not None:
-        st.session_state["uploaded_file"] = uploaded_file
+        if st.session_state.get("uploaded_file") != uploaded_file:
+            st.session_state["uploaded_file"] = uploaded_file
+            st.session_state["result"] = None
 
     # Process the file.
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
