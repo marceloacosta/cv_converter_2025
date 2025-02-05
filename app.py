@@ -206,7 +206,8 @@ Important:
 - Keep the exact section structure
 - Preserve all dates, locations, and details
 - Do not omit any information from the original CV
-- Return ONLY the formatted markdown, no additional comments""",
+- DO NOT wrap the output in code blocks or backticks (```)
+- DO NOT add any additional comments or explanations""",
         agent=cv_transcriber,
     )
 
@@ -221,7 +222,8 @@ Important:
 7. Ensure proper markdown syntax
 
 Return the complete, formatted CV markdown without any additional commentary.
-Do not remove sections that have content. Only remove completely empty sections.""",
+Do not remove sections that have content. Only remove completely empty sections.
+IMPORTANT: Do not wrap the output in code blocks or backticks.""",
         agent=cv_editor,
     )
 
