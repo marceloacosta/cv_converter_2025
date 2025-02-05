@@ -9,7 +9,10 @@ from docx import Document
 from PyPDF2 import PdfReader
 from weasyprint import HTML, CSS
 
-# Helper functions
+# -----------------------------
+# Helper Functions
+# -----------------------------
+
 def markdown_to_pdf(markdown_text: str) -> bytes:
     """Convert markdown text to PDF bytes in memory."""
     html_content = markdown.markdown(markdown_text)
@@ -36,6 +39,7 @@ def markdown_to_pdf(markdown_text: str) -> bytes:
     pdf_buffer.seek(0)
     return pdf_buffer.read()
 
+
 def extract_text_from_file(uploaded_file) -> str:
     """Extract text from a .txt, .docx, or .pdf file."""
     file_name = uploaded_file.name
@@ -56,23 +60,54 @@ def extract_text_from_file(uploaded_file) -> str:
         cv_text = "Unsupported file type."
     return cv_text
 
+# -----------------------------
+# Custom Tool Definition (Disable Caching)
+# -----------------------------
+# Import CrewAI's BaseTool from langchain.tools (or CrewAI if that's where it's defined)
+from langchain.tools import Tool
+
+class NoCacheTool(Tool):
+    def cache_function(self, *args, **kwargs):
+        # Disable caching by always returning False
+        return False
+
+class ExtractTextTool(NoCacheTool):
+    name: str = "extract_text_from_file"
+    description: str = (
+        "Extracts text from an uploaded file (.txt, .docx, or .pdf). "
+        "Caching is disabled so that each call is fresh."
+    )
+    
+    def _run(self, file_path: str) -> str:
+        # Ignores the file_path parameter; reads from Streamlit session state.
+        uploaded = st.session_state.get("uploaded_file")
+        if not uploaded:
+            return "No file uploaded."
+        return extract_text_from_file(uploaded)
+
+# -----------------------------
+# Main Application
+# -----------------------------
+
 def main():
-    # Ensure environment variables are loaded
+    # Load environment variables
     load_dotenv(find_dotenv())
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
     if not OPENAI_API_KEY:
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer V3")
+    st.title("CV Format Standardizer")
 
-    # Initialize session state for the uploaded file and result.
+    # Initialize session state variables if not set.
     if "uploaded_file" not in st.session_state:
         st.session_state["uploaded_file"] = None
     if "result" not in st.session_state:
         st.session_state["result"] = None
 
-    # --- File Uploader ---
+    # -----------------------------
+    # File Uploader
+    # -----------------------------
     uploaded_file = st.file_uploader("Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx'])
     if uploaded_file is not None:
         # If a new file is uploaded, clear the previous result.
@@ -81,32 +116,22 @@ def main():
             st.session_state["result"] = None
         st.session_state["uploaded_file"] = uploaded_file
 
-    # Debug output: display current file name.
+    # Debug: Display the currently stored file name.
     if st.session_state["uploaded_file"]:
         st.write("Current uploaded file:", st.session_state["uploaded_file"].name)
     else:
         st.write("No file currently uploaded.")
 
-    # --- Re-instantiate Agents, Tasks, and Crew ---
-    # Import necessary classes from LangChain and CrewAI here so they're created fresh.
+    # -----------------------------
+    # Re-instantiate Agents, Tasks, and Crew inside main()
+    # -----------------------------
     from langchain_openai import ChatOpenAI
     from crewai import Agent, Task, Process, Crew
-    from langchain.tools import Tool
 
-    # Define a tool that extracts text from the uploaded file.
-    def extract_text_from_file_tool(file_path: str) -> str:
-        uploaded = st.session_state.get("uploaded_file")
-        if not uploaded:
-            return "No file uploaded."
-        return extract_text_from_file(uploaded)
+    # Create our custom tool instance (with caching disabled)
+    extract_text_tool = ExtractTextTool()
 
-    extract_text_tool = Tool(
-        name="extract_text_from_file",
-        description="Extracts text from an uploaded file (.txt, .docx, or .pdf).",
-        func=extract_text_from_file_tool,
-    )
-
-    # Create the transcriber and editor agents.
+    # Create the transcriber agent using our custom tool.
     cv_transcriber = Agent(
         role="Senior Researcher",
         goal="Extract all the relevant sections and details from the CV text.",
@@ -117,13 +142,14 @@ def main():
         llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
     )
 
+    # Create the editor agent (which does not require a tool).
     cv_editor = Agent(
         role="Senior Editor",
         goal="Review the CV markdown and remove redundancies or empty sections.",
         backstory="You are an expert editor who refines CVs to be concise and only include specified details.",
         verbose=True,
         allow_delegation=False,
-        tools=[],  # No tools needed here.
+        tools=[],  # No tools needed for this agent.
         llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
     )
 
@@ -235,13 +261,11 @@ def main():
         process=Process.sequential,
     )
 
-    # --- Process the File ---
+    # -----------------------------
+    # Process the File
+    # -----------------------------
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        # Clear all cached data and resources to force a re-run.
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        
-        # Explicitly clear any previous result.
+        # Clear any previous result.
         st.session_state["result"] = None
 
         # (Optional debug) Show file details.
@@ -263,12 +287,19 @@ def main():
                 mime="application/pdf"
             )
 
-    # --- Allow Editing and Downloading ---
+    # -----------------------------
+    # Allow Editing and Downloading
+    # -----------------------------
     if st.session_state["result"]:
         edited_markdown = st.text_area("Edit the markdown below:", value=st.session_state["result"], height=300)
         if st.button("Save Edited"):
             pdf_bytes = markdown_to_pdf(edited_markdown)
-            st.download_button(label="Download Edited PDF", data=pdf_bytes, file_name="edited_output.pdf", mime="application/pdf")
+            st.download_button(
+                label="Download Edited PDF", 
+                data=pdf_bytes, 
+                file_name="edited_output.pdf", 
+                mime="application/pdf"
+            )
 
 if __name__ == "__main__":
     main()
