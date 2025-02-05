@@ -64,7 +64,7 @@ def main():
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer V2")
+    st.title("CV Format Standardizer V3")
 
     # Initialize session state for the uploaded file and result.
     if "uploaded_file" not in st.session_state:
@@ -237,7 +237,11 @@ def main():
 
     # --- Process the File ---
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        # Clear previous result before processing.
+        # Clear all cached data and resources to force a re-run.
+        st.cache_data.clear()
+        st.cache_resource.clear()
+        
+        # Explicitly clear any previous result.
         st.session_state["result"] = None
 
         # (Optional debug) Show file details.
@@ -247,10 +251,17 @@ def main():
         # Process the current file with the Crew tasks.
         result = crew.kickoff()
         st.session_state["result"] = result
+
+        # Display the result.
         st.markdown(result)
         if result:
             pdf_bytes = markdown_to_pdf(result)
-            st.download_button(label="Download PDF", data=pdf_bytes, file_name="output.pdf", mime="application/pdf")
+            st.download_button(
+                label="Download PDF", 
+                data=pdf_bytes, 
+                file_name="output.pdf", 
+                mime="application/pdf"
+            )
 
     # --- Allow Editing and Downloading ---
     if st.session_state["result"]:
