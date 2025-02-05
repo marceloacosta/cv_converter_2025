@@ -139,7 +139,7 @@ def main():
         allow_delegation=False,
         tools=[extract_text_tool],
         llm=ChatOpenAI(
-            model="gpt-4", 
+            model="gpt-4o", 
             temperature=0, 
             openai_api_key=OPENAI_API_KEY,
             cache=False  # Disable LLM response caching
