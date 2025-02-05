@@ -39,7 +39,6 @@ def markdown_to_pdf(markdown_text: str) -> bytes:
     pdf_buffer.seek(0)
     return pdf_buffer.read()
 
-
 def extract_text_from_file(uploaded_file) -> str:
     """Extract text from a .txt, .docx, or .pdf file."""
     file_name = uploaded_file.name
@@ -61,14 +60,14 @@ def extract_text_from_file(uploaded_file) -> str:
     return cv_text
 
 # -----------------------------
-# Custom Tool Definition (Disable Caching)
+# Custom CrewAI Tool with Caching Disabled
 # -----------------------------
-# Import CrewAI's BaseTool from langchain.tools (or CrewAI if that's where it's defined)
-from langchain.tools import Tool
+# Use CrewAI's BaseTool (not langchain's Tool) for custom tools.
+from crewai import BaseTool
 
-class NoCacheTool(Tool):
+class NoCacheTool(BaseTool):
     def cache_function(self, *args, **kwargs):
-        # Disable caching by always returning False
+        # Always return False so that no caching is done.
         return False
 
 class ExtractTextTool(NoCacheTool):
@@ -77,9 +76,9 @@ class ExtractTextTool(NoCacheTool):
         "Extracts text from an uploaded file (.txt, .docx, or .pdf). "
         "Caching is disabled so that each call is fresh."
     )
-    
+
     def _run(self, file_path: str) -> str:
-        # Ignores the file_path parameter; reads from Streamlit session state.
+        # Ignore the file_path parameter; read from the session state.
         uploaded = st.session_state.get("uploaded_file")
         if not uploaded:
             return "No file uploaded."
@@ -90,16 +89,16 @@ class ExtractTextTool(NoCacheTool):
 # -----------------------------
 
 def main():
-    # Load environment variables
+    # Load environment variables.
     load_dotenv(find_dotenv())
     OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
     if not OPENAI_API_KEY:
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer")
+    st.title("CV Format Standardizer V4")
 
-    # Initialize session state variables if not set.
+    # Initialize session state for the uploaded file and result.
     if "uploaded_file" not in st.session_state:
         st.session_state["uploaded_file"] = None
     if "result" not in st.session_state:
@@ -110,28 +109,28 @@ def main():
     # -----------------------------
     uploaded_file = st.file_uploader("Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx'])
     if uploaded_file is not None:
-        # If a new file is uploaded, clear the previous result.
+        # Clear the previous result if a new file is uploaded.
         if (st.session_state["uploaded_file"] is None or 
             st.session_state["uploaded_file"].name != uploaded_file.name):
             st.session_state["result"] = None
         st.session_state["uploaded_file"] = uploaded_file
 
-    # Debug: Display the currently stored file name.
+    # Debug output: display current file name.
     if st.session_state["uploaded_file"]:
         st.write("Current uploaded file:", st.session_state["uploaded_file"].name)
     else:
         st.write("No file currently uploaded.")
 
     # -----------------------------
-    # Re-instantiate Agents, Tasks, and Crew inside main()
+    # Re-instantiate Agents, Tasks, and Crew
     # -----------------------------
     from langchain_openai import ChatOpenAI
     from crewai import Agent, Task, Process, Crew
 
-    # Create our custom tool instance (with caching disabled)
+    # Create our custom tool instance with caching disabled.
     extract_text_tool = ExtractTextTool()
 
-    # Create the transcriber agent using our custom tool.
+    # Create the transcriber agent (which uses our custom tool).
     cv_transcriber = Agent(
         role="Senior Researcher",
         goal="Extract all the relevant sections and details from the CV text.",
@@ -142,18 +141,18 @@ def main():
         llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
     )
 
-    # Create the editor agent (which does not require a tool).
+    # Create the editor agent (does not need a tool).
     cv_editor = Agent(
         role="Senior Editor",
         goal="Review the CV markdown and remove redundancies or empty sections.",
         backstory="You are an expert editor who refines CVs to be concise and only include specified details.",
         verbose=True,
         allow_delegation=False,
-        tools=[],  # No tools needed for this agent.
+        tools=[],
         llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
     )
 
-    # Define the tasks.
+    # Define tasks.
     task_write_cv = Task(
         description="""Use the extracted CV text and generate comprehensive sections for personal information, job experience, education, etc. Follow this markdown format precisely. If any information is missing or not specified, do not include that subsection.
 
