@@ -233,32 +233,44 @@ crew = Crew(
 #############################
 
 def main():
-    st.title("CV Format Standardizer")
+    st.title("CV Format Standardizer 2025")
 
-    # Initialize session state variables.
+    # Initialize session state variables if not already set.
     if "uploaded_file" not in st.session_state:
         st.session_state["uploaded_file"] = None
     if "result" not in st.session_state:
         st.session_state["result"] = None
 
-    # File uploader.
+    # --- File Uploader ---
+    # When a new file is uploaded, automatically clear the previous result.
     uploaded_file = st.file_uploader("Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx'])
     if uploaded_file is not None:
-        if st.session_state.get("uploaded_file") != uploaded_file:
-            st.session_state["uploaded_file"] = uploaded_file
+        # If there's no stored file or if the file name is different, clear the result.
+        if (st.session_state["uploaded_file"] is None or 
+            st.session_state["uploaded_file"].name != uploaded_file.name):
             st.session_state["result"] = None
+        st.session_state["uploaded_file"] = uploaded_file
 
-    # Process the file.
+    # Debug output: show which file is currently stored.
+    if st.session_state["uploaded_file"]:
+        st.write("Current uploaded file:", st.session_state["uploaded_file"].name)
+    else:
+        st.write("No file currently uploaded.")
+
+    # --- Process the File ---
+    # When the "Process" button is clicked, automatically clear any previous result before processing.
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        result = crew.kickoff()  # Run the crew tasks.
+        # Clear previous result before processing.
+        st.session_state["result"] = None
+        result = crew.kickoff()  # Process the current file
         st.session_state["result"] = result
         st.markdown(result)
         if result:
             pdf_bytes = markdown_to_pdf(result)
             st.download_button(label="Download PDF", data=pdf_bytes, file_name="output.pdf", mime="application/pdf")
 
-    # Allow editing of the markdown and downloading a new PDF.
-    if st.session_state.get("result"):
+    # --- Allow Editing of the Markdown and Downloading a New PDF ---
+    if st.session_state["result"]:
         edited_markdown = st.text_area("Edit the markdown below:", value=st.session_state["result"], height=300)
         if st.button("Save Edited"):
             pdf_bytes = markdown_to_pdf(edited_markdown)
