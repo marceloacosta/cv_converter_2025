@@ -71,15 +71,17 @@ class NoCacheTool(Tool):
         return False
 
 class ExtractTextTool(NoCacheTool):
-    # Provide type annotations for the attributes.
-    name: str = "extract_text_from_file"
-    description: str = (
-        "Extracts text from an uploaded file (.txt, .docx, or .pdf). "
-        "Caching is disabled so that each call is fresh."
-    )
+    def __init__(self):
+        super().__init__(
+            name="extract_text_from_file",
+            func=self._run,
+            description=(
+                "Extracts text from an uploaded file (.txt, .docx, or .pdf). "
+                "Caching is disabled so that each call is fresh."
+            )
+        )
 
     def _run(self, file_path: str) -> str:
-        # Ignore the file_path parameter and use the file stored in session state.
         uploaded = st.session_state.get("uploaded_file")
         if not uploaded:
             return "No file uploaded."
