@@ -60,7 +60,7 @@ def extract_text_from_file(uploaded_file) -> str:
     return cv_text
 
 # -----------------------------
-# Custom Tool Definition
+# Custom Tool Definition with Caching Disabled
 # -----------------------------
 from langchain.tools import Tool
 
@@ -76,7 +76,7 @@ class ExtractTextTool(NoCacheTool):
             func=self._run,
             description=(
                 "Extracts text from an uploaded file (.txt, .docx, or .pdf). "
-                "Caching is disabled so that each call is fresh."
+                "Caching is disabled for fresh extraction each time."
             )
         )
 
@@ -98,7 +98,7 @@ def main():
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer V4")
+    st.title("CV Format Standardizer V5")
 
     # Initialize session state variables
     if "uploaded_file" not in st.session_state:
@@ -111,11 +111,9 @@ def main():
         "Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx']
     )
     if uploaded_file is not None:
-        # If a new file is uploaded, clear the previous result
-        if (st.session_state["uploaded_file"] is None or 
-            st.session_state["uploaded_file"].name != uploaded_file.name):
-            st.session_state["result"] = None
+        # Always update the file and clear the result when a new file is uploaded
         st.session_state["uploaded_file"] = uploaded_file
+        st.session_state["result"] = None
 
     # Debug output
     if st.session_state["uploaded_file"]:
@@ -129,10 +127,10 @@ def main():
     from langchain_openai import ChatOpenAI
     from crewai import Agent, Task, Process, Crew
 
-    # Create text extraction tool
+    # Create text extraction tool with caching disabled
     extract_text_tool = ExtractTextTool()
 
-    # Create agents
+    # Create agents with no caching
     cv_transcriber = Agent(
         role="Senior CV Analyst",
         goal="Extract and format all CV information accurately",
@@ -140,7 +138,12 @@ def main():
         verbose=True,
         allow_delegation=False,
         tools=[extract_text_tool],
-        llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
+        llm=ChatOpenAI(
+            model="gpt-4", 
+            temperature=0, 
+            openai_api_key=OPENAI_API_KEY,
+            cache=False  # Disable LLM response caching
+        ),
     )
 
     cv_editor = Agent(
@@ -150,109 +153,108 @@ def main():
         verbose=True,
         allow_delegation=False,
         tools=[],
-        llm=ChatOpenAI(model="gpt-4", temperature=0, openai_api_key=OPENAI_API_KEY),
+        llm=ChatOpenAI(
+            model="gpt-4", 
+            temperature=0, 
+            openai_api_key=OPENAI_API_KEY,
+            cache=False  # Disable LLM response caching
+        ),
     )
 
-    # Define tasks
+    # Define tasks (keeping the same task descriptions)
     task_write_cv = Task(
-    description=f"""Use the text extracted from the CV text and write comprehensive personal information, job experience and education sections. Make sure you include all job experiences and education details.
-    For your Outputs use the following markdown format (If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.):
-    If Skill level is not specified, leave it empty. If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.
+        description="""Use the text extracted from the CV text and write comprehensive personal information, job experience and education sections. Make sure you include all job experiences and education details.
+        For your Outputs use the following markdown format (If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.):
+        If Skill level is not specified, leave it empty. If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.
 
-    # [Name]
-    - **Email:** [Email]
-    - **Phone:** [Phone number]
-    - **Address:** [Address]
-    - **Linkedin:** [LinkedIn profile]
-    - **Github:** [Github profile]
-    - **Personal website:**[Personal website]
-    # About me
-    <div style="text-align: justify"> 
-    - [Description of yourself]
-    </div>
-    # Job experience
-    ## [Company name]
-    ### [Position] 
-    - Duration
-    - Location
-    ##[Responsibilities]
-    <div style="text-align: justify"> 
-    - Description of responsibilities
-    - Description of achievements in that position
-    - Description of technologies, stack or skills used in that position
-    </div>
+        # [Name]
+        - **Email:** [Email]
+        - **Phone:** [Phone number]
+        - **Address:** [Address]
+        - **Linkedin:** [LinkedIn profile]
+        - **Github:** [Github profile]
+        - **Personal website:**[Personal website]
+        # About me
+        <div style="text-align: justify"> 
+        - [Description of yourself]
+        </div>
+        # Job experience
+        ## [Company name]
+        ### [Position] 
+        - Duration
+        - Location
+        ##[Responsibilities]
+        <div style="text-align: justify"> 
+        - Description of responsibilities
+        - Description of achievements in that position
+        - Description of technologies, stack or skills used in that position
+        </div>
 
-    # Education
-    ## [Institution name]
-    ### [Degree] 
-    - Duration
-    - Location
-    ##[Description]
-    - Description of degree
-    # Additional information
-    ## Languages
-    - [Languages] [Skill level]
-    ## Skills
-    - [Programming languages] [Skill level]
-    - [Technologies] 
-    - [Other skills]  
-   
-   
-    """,
-    agent=cv_transcriber,
-)
-
+        # Education
+        ## [Institution name]
+        ### [Degree] 
+        - Duration
+        - Location
+        ##[Description]
+        - Description of degree
+        # Additional information
+        ## Languages
+        - [Languages] [Skill level]
+        ## Skills
+        - [Programming languages] [Skill level]
+        - [Technologies] 
+        - [Other skills]  
+        """,
+        agent=cv_transcriber,
+    )
 
     task_edit_cv = Task(
-    description=f"""Use the resulting CV markdown text and Find and explore the resulting CV. Carefully review each section and subsection and eliminate all redundancies and sections or subsections where information is empty or not specified.
-    For your Outputs use the following markdown format below (include sections only whenever applicable):
-    Do not include in your output any commentary or notes. Only include the CV text in markdown format.
-    If Skill level is not specified, leave it empty. If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.
-    # [Name]
-    - **Email:** [Email]
-    - **Phone:** [Phone number]
-    - **Address:** [Address]
-    - **Linkedin:** [LinkedIn profile]
-    - **Github:** [Github profile]
-    - **Personal website:**[Personal website]
-    # About me
-    <div style="text-align: justify"> 
-    - [Description of yourself]
-    </div>
-    # Job experience
-    ## [Company name]
-    ### [Position] 
-    - Duration
-    - Location
-    ##[Responsibilities]
-    <div style="text-align: justify"> 
-    - Description of responsibilities
-    - Description of achievements in that position
-    - Description of technologies, stack or skills used in that position
-    </div>
+        description="""Use the resulting CV markdown text and Find and explore the resulting CV. Carefully review each section and subsection and eliminate all redundancies and sections or subsections where information is empty or not specified.
+        For your Outputs use the following markdown format below (include sections only whenever applicable):
+        Do not include in your output any commentary or notes. Only include the CV text in markdown format.
+        If Skill level is not specified, leave it empty. If any of the requested information can not be found or it is Not Specified don't include that subsection. Do not invent, guess or assume any information.
+        # [Name]
+        - **Email:** [Email]
+        - **Phone:** [Phone number]
+        - **Address:** [Address]
+        - **Linkedin:** [LinkedIn profile]
+        - **Github:** [Github profile]
+        - **Personal website:**[Personal website]
+        # About me
+        <div style="text-align: justify"> 
+        - [Description of yourself]
+        </div>
+        # Job experience
+        ## [Company name]
+        ### [Position] 
+        - Duration
+        - Location
+        ##[Responsibilities]
+        <div style="text-align: justify"> 
+        - Description of responsibilities
+        - Description of achievements in that position
+        - Description of technologies, stack or skills used in that position
+        </div>
 
-    # Education
-    ## [Institution name]
-    ### [Degree] 
-    - Duration
-    - Location
-    ##[Description]
-    - Description of degree
-    # Additional information
-    ## Languages
-    - [Languages] [Skill level]
-    ## Skills
-    - [Programming languages] [Skill level]
-    - [Technologies] 
-    - [Other skills] 
-   
+        # Education
+        ## [Institution name]
+        ### [Degree] 
+        - Duration
+        - Location
+        ##[Description]
+        - Description of degree
+        # Additional information
+        ## Languages
+        - [Languages] [Skill level]
+        ## Skills
+        - [Programming languages] [Skill level]
+        - [Technologies] 
+        - [Other skills] 
+        """,
+        agent=cv_editor,
+    )
 
-   
-    """,
-    agent= cv_editor,
-)
-
-    # Create and configure the crew
+    # Create and configure the crew with caching disabled
     crew = Crew(
         agents=[cv_transcriber, cv_editor],
         tasks=[task_write_cv, task_edit_cv],
@@ -262,12 +264,15 @@ def main():
 
     # Process the File
     if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        st.session_state["result"] = None
+        st.session_state["result"] = None  # Clear any previous results
         file_bytes = st.session_state["uploaded_file"].getvalue()
         st.write("Processing file of size:", len(file_bytes), "bytes")
+        
+        # Run the crew with fresh processing
         result = crew.kickoff()
         st.session_state["result"] = result
         st.markdown(result)
+        
         if result:
             pdf_bytes = markdown_to_pdf(result)
             st.download_button(
