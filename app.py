@@ -98,7 +98,7 @@ def main():
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer V4")
+    st.title("CV Format Standardizer V7")
 
     # Initialize session state variables
     if "uploaded_file" not in st.session_state:
