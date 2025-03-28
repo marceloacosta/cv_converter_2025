@@ -98,22 +98,30 @@ def main():
         st.error("OPENAI_API_KEY is not set. Please set it in your secrets.")
         return
 
-    st.title("CV Format Standardizer V6")
+    st.title("CV Format Standardizer V4")
 
     # Initialize session state variables
     if "uploaded_file" not in st.session_state:
         st.session_state["uploaded_file"] = None
     if "result" not in st.session_state:
         st.session_state["result"] = None
+    if "current_markdown" not in st.session_state:
+        st.session_state["current_markdown"] = None
+    if "processed" not in st.session_state:
+        st.session_state["processed"] = False
 
     # File Uploader
     uploaded_file = st.file_uploader(
         "Choose a CV file (txt, pdf, or docx)", type=['txt', 'pdf', 'docx']
     )
     if uploaded_file is not None:
-        # Always update the file and clear the result when a new file is uploaded
-        st.session_state["uploaded_file"] = uploaded_file
-        st.session_state["result"] = None
+        # Only clear results if a new file is uploaded
+        if (st.session_state["uploaded_file"] is None or 
+            st.session_state["uploaded_file"].name != uploaded_file.name):
+            st.session_state["uploaded_file"] = uploaded_file
+            st.session_state["result"] = None
+            st.session_state["current_markdown"] = None
+            st.session_state["processed"] = False
 
     # Debug output
     if st.session_state["uploaded_file"]:
@@ -139,7 +147,7 @@ def main():
         allow_delegation=False,
         tools=[extract_text_tool],
         llm=ChatOpenAI(
-            model="gpt-4o", 
+            model="gpt-4", 
             temperature=0, 
             openai_api_key=OPENAI_API_KEY,
             cache=False  # Disable LLM response caching
@@ -263,19 +271,29 @@ def main():
     )
 
     # Process the File
-    if st.button("Process") and st.session_state["uploaded_file"] is not None:
-        file_bytes = st.session_state["uploaded_file"].getvalue()
-        st.write("Processing file of size:", len(file_bytes), "bytes")
-        
-        # Run the crew with fresh processing
-        result = crew.kickoff()
-        st.session_state["result"] = result
-        
-        if result:
-            st.session_state["current_markdown"] = result
+    if not st.session_state["processed"]:
+        if st.button("Process") and st.session_state["uploaded_file"] is not None:
+            file_bytes = st.session_state["uploaded_file"].getvalue()
+            st.write("Processing file of size:", len(file_bytes), "bytes")
+            
+            # Run the crew with fresh processing
+            result = crew.kickoff()
+            st.session_state["result"] = result
+            st.session_state["processed"] = True
+            
+            if result:
+                st.session_state["current_markdown"] = result
+                st.rerun()
         
     # Display and allow editing of results
-    if st.session_state.get("result"):
+    if st.session_state["processed"] and st.session_state.get("current_markdown"):
+        # Add a reset button at the top
+        if st.button("Process New File"):
+            st.session_state["processed"] = False
+            st.session_state["result"] = None
+            st.session_state["current_markdown"] = None
+            st.rerun()
+            
         # Display the current markdown
         st.markdown(st.session_state["current_markdown"])
         
@@ -296,7 +314,7 @@ def main():
         
         with col2:
             # Always allow PDF generation from current markdown
-            pdf_bytes = markdown_to_pdf(st.session_state["current_markdown"])
+            pdf_bytes = markdown_to_pdf(edited_markdown)
             st.download_button(
                 label="Download PDF",
                 data=pdf_bytes,
