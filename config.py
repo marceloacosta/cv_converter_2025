@@ -13,41 +13,51 @@ ANALYST_MODEL = "gpt-4o"
 EDITOR_MODEL = "gpt-4o-mini"
 
 CV_TEMPLATE = """\
-# [Name]
-- **Email:** [Email]
-- **Phone:** [Phone number]
-- **Address:** [Address]
-- **Linkedin:** [LinkedIn profile]
-- **Github:** [Github profile]
-- **Personal website:** [Personal website]
+# Name of the person
+
+- **Email:** actual email
+- **Phone:** actual phone number
+- **Address:** actual address
+- **Linkedin:** actual LinkedIn URL
+- **Github:** actual Github URL
+- **Personal website:** actual URL
+
 # About me
-<div style="text-align: justify">
-- [Description of yourself]
-</div>
+
+Brief professional summary paragraph.
+
 # Job experience
-## [Company name]
-### [Position]
-- Duration
+
+## Company name
+### Position title
+- Start year - End year
 - Location
-## [Responsibilities]
-<div style="text-align: justify">
-- Description of responsibilities
-- Description of achievements in that position
-- Description of technologies, stack or skills used in that position
-</div>
+
+**Responsibilities:**
+- Each responsibility as a separate bullet point
+- Each achievement as a separate bullet point
+- Each technology or skill used as a separate bullet point
+
+(Repeat the above block for each job)
 
 # Education
-## [Institution name]
-### [Degree]
-- Duration
+
+## Institution name
+### Degree title
+- Start year - End year
 - Location
-## [Description]
-- Description of degree
+- Brief description of degree (if available)
+
 # Additional information
+
+## Certifications
+- Certification name - Institution - Year
+
 ## Languages
-- [Languages] [Skill level]
+- Language — Skill level
+
 ## Skills
-- [Programming languages] [Skill level]
-- [Technologies]
-- [Other skills]
+- Programming languages — Skill level
+- Technologies
+- Other skills
 """
